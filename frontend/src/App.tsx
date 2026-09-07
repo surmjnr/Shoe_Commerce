@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, ReactNode, useState } from 'react';
 import { Link, Route, Routes, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -8,6 +8,7 @@ import { createOrder, getProduct, getProducts, getStoreSettings, trackOrder, typ
 import { getApiErrorMessage } from '@/lib/api/client';
 import { useCartStore } from '@/stores/cart';
 import type { Product, ProductVariant } from '@/types';
+import AdminApp from '@/components/admin/AdminApp';
 
 const money = (value: string | number) => `GHS ${Number(value).toFixed(2)}`;
 
@@ -89,6 +90,22 @@ function OrderSummary() { const items = useCartStore((state) => state.items); co
 
 function Confirmation() { const { orderNumber = '' } = useParams(); return <main className="container page"><div className="empty"><div className="eyebrow">Order received</div><h1 className="display">Thank you for your order.</h1><p>Order <strong>#{orderNumber}</strong> has been saved. We will confirm the next step with you.</p><Link className="button" to={`/track?order=${orderNumber}`}>Track order</Link></div></main>; }
 
-function Track() { const [orderNumber, setOrderNumber] = useState(''); const [phone, setPhone] = useState(''); const query = useQuery({ queryKey: ['track', orderNumber, phone], queryFn: () => trackOrder(orderNumber, phone), enabled: false }); const submit = (event: FormEvent) => { event.preventDefault(); void query.refetch(); }; return <main className="container page"><div className="form"><div className="eyebrow">Order tracking</div><h1 className="display">Where is my order?</h1><form className="form" onSubmit={submit}><label className="field">Order number<input value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} placeholder="SF12345678" required /></label><label className="field">Phone number<input value={phone} onChange={(event) => setPhone(event.target.value)} required /></label><button className="button">Find order</button></form>{query.isError && <div className="error">{getApiErrorMessage(query.error)}</div>}{query.data && <div className="summary"><strong>Order #{query.data.order_number}</strong><span>{query.data.order_status.replaceAll('_', ' ')}</span><strong>{money(query.data.total)}</strong>{query.data.status_timeline.map((step) => <div className="summary-row" key={step.status}><span>{step.status.replaceAll('_', ' ')}</span><span>{step.completed ? 'Complete' : 'Pending'}</span></div>)}</div>}</div></main>; }
+function Track() { const [orderNumber, setOrderNumber] = useState(''); const [phone, setPhone] = useState(''); const query = useQuery({ queryKey: ['track', orderNumber, phone], queryFn: () => trackOrder(orderNumber, phone), enabled: false }); const submit = (event: FormEvent) => { event.preventDefault(); void query.refetch(); }; return <main className="container page"><div className="form"><div className="eyebrow">Order tracking</div><h1 className="display">Where is my order?</h1><form className="form" onSubmit={submit}><label className="field">Order number<input value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} placeholder="SF12345678" required /></label><label className="field">Phone number<input value={phone} onChange={(event) => setPhone(event.target.value)} required /></label><button className="button">Find order</button></form>{query.isError && <div className="error">{getApiErrorMessage(query.error)}</div>}{query.data && <div className="summary"><strong>Order #{query.data.order_number}</strong><span>{query.data.order_status.replace(/_/g, ' ')}</span><strong>{money(query.data.total)}</strong>{query.data.status_timeline.map((step) => <div className="summary-row" key={step.status}><span>{step.status.replace(/_/g, ' ')}</span><span>{step.completed ? 'Complete' : 'Pending'}</span></div>)}</div>}</div></main>; }
 
-export default function App() { return <div className="shell"><Header /><Routes><Route path="/" element={<Home />} /><Route path="/products" element={<Products />} /><Route path="/products/:slug" element={<ProductDetail />} /><Route path="/cart" element={<Cart />} /><Route path="/checkout" element={<Checkout />} /><Route path="/order/:orderNumber" element={<Confirmation />} /><Route path="/track" element={<Track />} /><Route path="*" element={<Home />} /></Routes><footer className="footer"><div className="container">Direct ordering for a single independent shoe store.</div></footer></div>; }
+function StorefrontLayout({ children }: { children: ReactNode }) {
+  return <div className="shell"><Header />{children}<footer className="footer"><div className="container">Direct ordering for a single independent shoe store.</div></footer></div>;
+}
+
+export default function App() {
+  return <Routes>
+    <Route path="/admin/*" element={<AdminApp />} />
+    <Route path="/" element={<StorefrontLayout><Home /></StorefrontLayout>} />
+    <Route path="/products" element={<StorefrontLayout><Products /></StorefrontLayout>} />
+    <Route path="/products/:slug" element={<StorefrontLayout><ProductDetail /></StorefrontLayout>} />
+    <Route path="/cart" element={<StorefrontLayout><Cart /></StorefrontLayout>} />
+    <Route path="/checkout" element={<StorefrontLayout><Checkout /></StorefrontLayout>} />
+    <Route path="/order/:orderNumber" element={<StorefrontLayout><Confirmation /></StorefrontLayout>} />
+    <Route path="/track" element={<StorefrontLayout><Track /></StorefrontLayout>} />
+    <Route path="*" element={<StorefrontLayout><Home /></StorefrontLayout>} />
+  </Routes>;
+}

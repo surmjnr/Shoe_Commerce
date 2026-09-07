@@ -213,6 +213,7 @@ class OrderService:
                     "buyer_phone",
                     "total",
                     "payment_method",
+                    "payment_status",
                     "order_status",
                     "created_at",
                 )

@@ -136,6 +136,7 @@ export interface DashboardStats {
     buyer_phone: string;
     total: string;
     payment_method: string;
+    payment_status: string;
     order_status: string;
     created_at: string;
   }>;
