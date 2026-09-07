@@ -15,16 +15,21 @@ const money = (value: string | number) => `GHS ${Number(value).toFixed(2)}`;
 function Header() {
   const count = useCartStore((state) => state.items.reduce((total, item) => total + item.quantity, 0));
   const settings = useQuery({ queryKey: ['store-settings'], queryFn: getStoreSettings });
+  const [open, setOpen] = useState(false);
+  const close = () => setOpen(false);
   return <header className="header"><div className="container header-inner">
-    <Link className="logo" to="/">{settings.data?.business_name || 'SOLE / HOUSE'}</Link>
-    <nav className="nav"><Link to="/products">Shop</Link><Link to="/track">Track order</Link><Link className="cart-link" to="/cart">Cart ({count})</Link></nav>
+    <button className="icon-button mobile-menu" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen(true)}>☰</button>
+    <Link className="logo" to="/" onClick={close}>{settings.data?.business_name || 'SOLE / HOUSE'}</Link>
+    <nav className={`nav${open ? ' nav-open' : ''}`} aria-label="Main navigation"><button className="icon-button menu-close" aria-label="Close menu" onClick={close}>×</button><Link to="/products" onClick={close}>Shop</Link><Link to="/products?featured=true" onClick={close}>New arrivals</Link><Link to="/track" onClick={close}>Track order</Link></nav>
+    <Link className="cart-link" to="/cart" aria-label={`Cart, ${count} items`}>Cart <span>{count}</span></Link>{open && <button className="menu-backdrop" aria-label="Close menu" onClick={close} />}
   </div></header>;
 }
 
 function ProductCard({ product }: { product: Product }) {
+  const available = product.available_sizes?.filter(Boolean).join(' / ');
   return <Link className="product-card" to={`/products/${product.slug}`}>
-    <div className="product-image">{product.primary_image_url && <img src={product.primary_image_url} alt={product.name} loading="lazy" />}</div>
-    <h3>{product.name}</h3><div className="muted">{product.brand || product.category}</div><div className="price">{money(product.price)}</div>
+    <div className="product-image"><span className="product-badge">{product.is_featured ? 'Featured' : ''}</span>{product.primary_image_url ? <img src={product.primary_image_url} alt={product.name} loading="lazy" /> : <span className="image-fallback">SOLE / HOUSE</span>}</div>
+    <div className="product-meta"><span className="eyebrow">{product.brand || product.category}</span><h3>{product.name}</h3><div className="product-bottom"><span className="price">{money(product.price)}</span>{available && <span className="muted">{available}</span>}</div></div>
   </Link>;
 }
 
@@ -38,10 +43,13 @@ function ProductGrid({ search = '' }: { search?: string }) {
 
 function Home() {
   const [search, setSearch] = useState('');
+  const products = useQuery({ queryKey: ['products', 'home'], queryFn: () => getProducts() });
   const submit = (event: FormEvent) => { event.preventDefault(); window.history.pushState({}, '', `/products${search ? `?search=${encodeURIComponent(search)}` : ''}`); window.dispatchEvent(new PopStateEvent('popstate')); };
+  const categories = [...new Set((products.data || []).map((product) => product.category).filter(Boolean))].slice(0, 5);
   return <><main className="container">
-    <section className="hero"><div><div className="eyebrow">Considered footwear / Accra</div><h1 className="display">Find your next pair.</h1><p className="hero-copy">Quality shoes, selected for everyday movement. Browse the current collection and order directly from our store.</p><form className="search" onSubmit={submit}><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search shoes by name or brand" aria-label="Search shoes" /><button className="button" type="submit">Search</button></form></div><div className="hero-panel"><span className="eyebrow">The edit</span><strong className="display">Built for the days you actually live.</strong><span>New pairs arrive regularly. Stock is updated at the source.</span></div></section>
-    <section className="section"><div className="section-head"><h2>Latest collection</h2><Link to="/products">View all</Link></div><ProductGrid /></section>
+    <section className="hero"><div><div className="eyebrow">Considered footwear / Accra</div><h1 className="display">Find your next pair.</h1><p className="hero-copy">Quality shoes, selected for everyday movement. Browse the current collection and order directly from our store.</p><div className="hero-actions"><Link className="button" to="/products">Shop collection</Link><Link className="button secondary" to="/products?featured=true">New arrivals</Link></div><form className="search" onSubmit={submit}><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search shoes by name or brand" aria-label="Search shoes" /><button className="button" type="submit">Search</button></form></div><div className="hero-panel"><span className="eyebrow">The edit</span><strong className="display">Built for the days you actually live.</strong><span>New pairs arrive regularly. Stock is updated at the source.</span></div></section>
+    <section className="section"><div className="section-head"><div><div className="eyebrow">Browse your way</div><h2>Shop by category</h2></div></div><div className="category-grid">{categories.length ? categories.map((category) => <Link key={category} to={`/products?category=${encodeURIComponent(category)}`} className="category-tile"><span>{category.replace(/_/g, ' ')}</span><b>↗</b></Link>) : <p className="muted">Categories will appear as products are added.</p>}</div></section>
+    <section className="section"><div className="section-head"><div><div className="eyebrow">Just in</div><h2>Latest collection</h2></div><Link to="/products">View all ↗</Link></div><ProductGrid /></section>
   </main></>;
 }
 
@@ -56,13 +64,18 @@ function ProductDetail() {
   const query = useQuery({ queryKey: ['product', slug], queryFn: () => getProduct(slug) });
   const addItem = useCartStore((state) => state.addItem);
   const [selected, setSelected] = useState<ProductVariant>();
+  const [quantity, setQuantity] = useState(1);
+  const [activeImage, setActiveImage] = useState(0);
   const [added, setAdded] = useState(false);
   if (query.isLoading) return <main className="container page">Loading product...</main>;
   if (query.isError || !query.data) return <main className="container page"><div className="empty">Product not found.</div></main>;
   const product = query.data;
   const variant = selected || product.variants?.find((entry) => entry.stock_quantity > 0);
-  const add = () => { if (!variant) return; addItem({ productId: product.id, variantId: variant.id, productName: product.name, productSlug: product.slug, size: variant.size, price: product.price, quantity: 1, imageUrl: product.primary_image_url, maxStock: variant.stock_quantity }); setAdded(true); };
-  return <main className="container page"><div className="detail"><div className="gallery-main">{product.primary_image_url && <img src={product.primary_image_url} alt={product.name} />}</div><div><div className="eyebrow">{product.brand || product.category}</div><h1 className="display">{product.name}</h1><div className="price">{money(product.price)}</div><p className="hero-copy">{product.description || 'A carefully selected pair for your everyday rotation.'}</p><h3>Choose a size</h3><div className="variant-list">{product.variants?.map((entry) => <button className={`variant ${variant?.id === entry.id ? 'selected' : ''}`} disabled={!entry.stock_quantity} key={entry.id} onClick={() => setSelected(entry)}>{entry.size}{!entry.stock_quantity && ' - sold out'}</button>)}</div><button className="button" disabled={!variant} onClick={add}>{added ? 'Added to cart' : 'Add to cart'}</button>{added && <p><Link to="/cart">View cart and checkout</Link></p>}</div></div></main>;
+  const images = product.images?.filter((image) => image.image_url).sort((a, b) => a.sort_order - b.sort_order).map((image) => image.image_url as string) || [];
+  if (product.primary_image_url && !images.includes(product.primary_image_url)) images.unshift(product.primary_image_url);
+  const image = images[activeImage] || product.primary_image_url;
+  const add = () => { if (!variant) return; addItem({ productId: product.id, variantId: variant.id, productName: product.name, productSlug: product.slug, size: variant.size, price: product.price, quantity, imageUrl: product.primary_image_url, maxStock: variant.stock_quantity }); setAdded(true); };
+  return <main className="container page"><div className="detail"><div><div className="gallery-main">{image ? <img src={image} alt={`${product.name}, view ${activeImage + 1}`} /> : <span className="image-fallback">SOLE / HOUSE</span>}</div>{images.length > 1 && <div className="thumbnails">{images.map((source, index) => <button className={index === activeImage ? 'active' : ''} key={source} onClick={() => setActiveImage(index)} aria-label={`View image ${index + 1}`}><img src={source} alt="" /></button>)}</div>}</div><div className="detail-copy"><div className="eyebrow">{product.brand || product.category}</div><h1 className="display">{product.name}</h1><div className="price large-price">{money(product.price)}</div><p className="hero-copy">{product.description || 'A carefully selected pair for your everyday rotation.'}</p><div className="detail-rule" /><h3>Choose a size</h3><div className="variant-list">{product.variants?.map((entry) => <button type="button" className={`variant ${variant?.id === entry.id ? 'selected' : ''}`} disabled={!entry.stock_quantity} key={entry.id} onClick={() => { setSelected(entry); setQuantity(1); }}>{entry.size}{!entry.stock_quantity && <small>Sold out</small>}</button>)}</div>{variant && <div className="quantity"><span>Quantity</span><div><button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} aria-label="Decrease quantity">−</button><strong>{quantity}</strong><button type="button" onClick={() => setQuantity(Math.min(variant.stock_quantity, quantity + 1))} aria-label="Increase quantity">+</button></div><span className="muted">{variant.stock_quantity} available</span></div>}<button className="button add-button" disabled={!variant} onClick={add}>{added ? 'Added to cart' : 'Add to cart'}</button>{added && <p><Link to="/cart">View cart and checkout ↗</Link></p>}<div className="delivery-note"><strong>Delivery & payment</strong><span>We deliver locally. Pay on delivery and Mobile Money are available at checkout.</span></div></div></div></main>;
 }
 
 function Cart() {
@@ -91,6 +104,7 @@ function OrderSummary() { const items = useCartStore((state) => state.items); co
 function Confirmation() { const { orderNumber = '' } = useParams(); return <main className="container page"><div className="empty"><div className="eyebrow">Order received</div><h1 className="display">Thank you for your order.</h1><p>Order <strong>#{orderNumber}</strong> has been saved. We will confirm the next step with you.</p><Link className="button" to={`/track?order=${orderNumber}`}>Track order</Link></div></main>; }
 
 function Track() { const [orderNumber, setOrderNumber] = useState(''); const [phone, setPhone] = useState(''); const query = useQuery({ queryKey: ['track', orderNumber, phone], queryFn: () => trackOrder(orderNumber, phone), enabled: false }); const submit = (event: FormEvent) => { event.preventDefault(); void query.refetch(); }; return <main className="container page"><div className="form"><div className="eyebrow">Order tracking</div><h1 className="display">Where is my order?</h1><form className="form" onSubmit={submit}><label className="field">Order number<input value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} placeholder="SF12345678" required /></label><label className="field">Phone number<input value={phone} onChange={(event) => setPhone(event.target.value)} required /></label><button className="button">Find order</button></form>{query.isError && <div className="error">{getApiErrorMessage(query.error)}</div>}{query.data && <div className="summary"><strong>Order #{query.data.order_number}</strong><span>{query.data.order_status.replace(/_/g, ' ')}</span><strong>{money(query.data.total)}</strong>{query.data.status_timeline.map((step) => <div className="summary-row" key={step.status}><span>{step.status.replace(/_/g, ' ')}</span><span>{step.completed ? 'Complete' : 'Pending'}</span></div>)}</div>}</div></main>; }
+
 
 function StorefrontLayout({ children }: { children: ReactNode }) {
   return <div className="shell"><Header />{children}<footer className="footer"><div className="container">Direct ordering for a single independent shoe store.</div></footer></div>;
