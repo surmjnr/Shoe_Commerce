@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Product, ProductImage, ProductVariant
+from .models import Product, ProductImage, ProductOption, ProductVariant
 
 
 class ProductImageInline(admin.TabularInline):
@@ -42,3 +42,11 @@ class ProductVariantAdmin(admin.ModelAdmin):
     list_display = ("product", "size", "stock_quantity", "is_active", "sku")
     list_filter = ("is_active", "product")
     search_fields = ("product__name", "sku", "size")
+
+
+@admin.register(ProductOption)
+class ProductOptionAdmin(admin.ModelAdmin):
+    list_display = ("label", "option_type", "value", "created_at")
+    list_filter = ("option_type",)
+    search_fields = ("label", "value")
+    ordering = ("option_type", "label")

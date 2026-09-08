@@ -4,6 +4,8 @@ from .views import (
     AdminProductDetailView,
     AdminProductImageDeleteView,
     AdminProductImageUploadView,
+    AdminProductOptionDetailView,
+    AdminProductOptionListCreateView,
     AdminProductListCreateView,
     BrandListView,
     CategoryListView,
@@ -36,4 +38,6 @@ urlpatterns = [
         AdminProductImageDeleteView.as_view(),
         name="admin-product-image-delete",
     ),
+    path("admin/options/", AdminProductOptionListCreateView.as_view(), name="admin-option-list"),
+    path("admin/options/<int:pk>/", AdminProductOptionDetailView.as_view(), name="admin-option-detail"),
 ]

@@ -22,6 +22,8 @@ export type ProductInput = {
   variants: Array<{ size: string; stock_quantity: number; sku: string; is_active: boolean }>;
 };
 
+export type ProductOption = { id: number; option_type: string; value: string; label: string; created_at: string };
+
 export async function loginAdmin(email: string, password: string): Promise<AuthResponse> {
   const response = await apiClient.post<AuthResponse>('/admin/auth/login/', { email, password });
   localStorage.setItem('admin_access_token', response.data.access);
@@ -88,4 +90,34 @@ export async function getAdminSettings(): Promise<StoreSettings> {
 export async function updateAdminSettings(payload: Partial<StoreSettings>): Promise<StoreSettings> {
   const response = await apiClient.patch<StoreSettings>('/admin/settings/', payload);
   return response.data;
+}
+
+export async function getProductOptions(optionType?: string): Promise<ProductOption[]> {
+  const response = await apiClient.get<PaginatedResponse<ProductOption> | ProductOption[]>('/admin/options/', { params: optionType ? { option_type: optionType } : {} });
+  return Array.isArray(response.data) ? response.data : response.data.results;
+}
+
+export async function createProductOption(payload: { option_type: string; value: string; label: string }): Promise<ProductOption> {
+  const response = await apiClient.post<ProductOption>('/admin/options/', payload);
+  return response.data;
+}
+
+export async function updateProductOption(id: number, payload: { value: string; label: string }): Promise<ProductOption> {
+  const response = await apiClient.patch<ProductOption>(`/admin/options/${id}/`, payload);
+  return response.data;
+}
+
+export async function deleteProductOption(id: number): Promise<void> {
+  await apiClient.delete(`/admin/options/${id}/`);
+}
+
+export async function uploadProductImages(id: number, files: File[]): Promise<Product> {
+  const payload = new FormData();
+  files.forEach((file) => payload.append('images', file));
+  const response = await apiClient.post<Product>(`/admin/products/${id}/images/`, payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+  return response.data;
+}
+
+export async function deleteProductImage(productId: number, imageId: number): Promise<void> {
+  await apiClient.delete(`/admin/products/${productId}/images/${imageId}/`);
 }

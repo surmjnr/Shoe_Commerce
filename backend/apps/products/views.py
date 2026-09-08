@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdminUser
 
-from .models import Product, ProductCategory, ProductImage
+from .models import Product, ProductCategory, ProductImage, ProductOption, ProductOptionType
 from .selectors import (
     filter_products,
     get_admin_products_queryset,
@@ -21,6 +21,7 @@ from .serializers import (
     CategorySerializer,
     ProductDetailSerializer,
     ProductListSerializer,
+    ProductOptionSerializer,
 )
 from .services import ProductService
 
@@ -48,16 +49,24 @@ class ProductDetailView(generics.RetrieveAPIView):
 
 class CategoryListView(APIView):
     def get(self, request):
-        categories = [
-            {"value": choice[0], "label": choice[1]}
-            for choice in ProductCategory.choices
-        ]
+        configured = ProductOption.objects.filter(option_type=ProductOptionType.CATEGORY)
+        categories = list(configured.values("value", "label"))
+        if not categories:
+            categories = [
+                {"value": choice[0], "label": choice[1]}
+                for choice in ProductCategory.choices
+            ]
         return Response(CategorySerializer(categories, many=True).data)
 
 
 class BrandListView(APIView):
     def get(self, request):
-        return Response(list(get_distinct_brands()))
+        configured = list(
+            ProductOption.objects.filter(option_type=ProductOptionType.BRAND).values_list(
+                "value", flat=True
+            )
+        )
+        return Response(configured or list(get_distinct_brands()))
 
 
 class FeaturedProductsView(generics.ListAPIView):
@@ -153,3 +162,29 @@ class AdminProductImageDeleteView(APIView):
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
         ProductService.delete_image(image)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AdminProductOptionListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = ProductOptionSerializer
+
+    def get_queryset(self):
+        queryset = ProductOption.objects.all()
+        option_type = self.request.query_params.get("option_type")
+        return queryset.filter(option_type=option_type) if option_type else queryset
+
+
+class AdminProductOptionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminUser]
+    queryset = ProductOption.objects.all()
+    serializer_class = ProductOptionSerializer
+
+    def destroy(self, request, *args, **kwargs):
+        option = self.get_object()
+        field_map = {"BRAND": "brand", "CATEGORY": "category", "CONDITION": "condition", "COLOR": "color"}
+        field = field_map.get(option.option_type)
+        if field and Product.objects.filter(**{field: option.value}).exists():
+            return Response({"detail": "This option is used by products and cannot be deleted."}, status=status.HTTP_409_CONFLICT)
+        if option.option_type == "SIZE" and Product.objects.filter(variants__size=option.value).exists():
+            return Response({"detail": "This size is used by products and cannot be deleted."}, status=status.HTTP_409_CONFLICT)
+        return super().destroy(request, *args, **kwargs)
