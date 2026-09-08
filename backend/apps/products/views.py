@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdminUser
 
-from .models import Product, ProductCategory, ProductImage, ProductOption, ProductOptionType
+from .models import Brand, Category, Color, Condition, Product, ProductImage, Size
 from .selectors import (
     filter_products,
     get_admin_products_queryset,
@@ -18,10 +18,13 @@ from .selectors import (
 from .serializers import (
     AdminProductCreateUpdateSerializer,
     AdminProductSerializer,
+    BrandSerializer,
     CategorySerializer,
+    ColorSerializer,
+    ConditionSerializer,
     ProductDetailSerializer,
     ProductListSerializer,
-    ProductOptionSerializer,
+    SizeSerializer,
 )
 from .services import ProductService
 
@@ -49,24 +52,12 @@ class ProductDetailView(generics.RetrieveAPIView):
 
 class CategoryListView(APIView):
     def get(self, request):
-        configured = ProductOption.objects.filter(option_type=ProductOptionType.CATEGORY)
-        categories = list(configured.values("value", "label"))
-        if not categories:
-            categories = [
-                {"value": choice[0], "label": choice[1]}
-                for choice in ProductCategory.choices
-            ]
-        return Response(CategorySerializer(categories, many=True).data)
+        return Response(CategorySerializer(Category.objects.all(), many=True).data)
 
 
 class BrandListView(APIView):
     def get(self, request):
-        configured = list(
-            ProductOption.objects.filter(option_type=ProductOptionType.BRAND).values_list(
-                "value", flat=True
-            )
-        )
-        return Response(configured or list(get_distinct_brands()))
+        return Response(BrandSerializer(Brand.objects.all(), many=True).data)
 
 
 class FeaturedProductsView(generics.ListAPIView):
@@ -164,27 +155,69 @@ class AdminProductImageDeleteView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class AdminProductOptionListCreateView(generics.ListCreateAPIView):
+class ConfigurationListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminUser]
-    serializer_class = ProductOptionSerializer
+    model = None
+    serializer_class = None
 
     def get_queryset(self):
-        queryset = ProductOption.objects.all()
-        option_type = self.request.query_params.get("option_type")
-        return queryset.filter(option_type=option_type) if option_type else queryset
+        return self.model.objects.all()
 
 
-class AdminProductOptionDetailView(generics.RetrieveUpdateDestroyAPIView):
+class ConfigurationDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminUser]
-    queryset = ProductOption.objects.all()
-    serializer_class = ProductOptionSerializer
+    model = None
+    serializer_class = None
 
-    def destroy(self, request, *args, **kwargs):
-        option = self.get_object()
-        field_map = {"BRAND": "brand", "CATEGORY": "category", "CONDITION": "condition", "COLOR": "color"}
-        field = field_map.get(option.option_type)
-        if field and Product.objects.filter(**{field: option.value}).exists():
-            return Response({"detail": "This option is used by products and cannot be deleted."}, status=status.HTTP_409_CONFLICT)
-        if option.option_type == "SIZE" and Product.objects.filter(variants__size=option.value).exists():
-            return Response({"detail": "This size is used by products and cannot be deleted."}, status=status.HTTP_409_CONFLICT)
-        return super().destroy(request, *args, **kwargs)
+    def get_queryset(self):
+        return self.model.objects.all()
+
+
+class AdminBrandListCreateView(ConfigurationListCreateView):
+    model = Brand
+    serializer_class = BrandSerializer
+
+
+class AdminBrandDetailView(ConfigurationDetailView):
+    model = Brand
+    serializer_class = BrandSerializer
+
+
+class AdminCategoryListCreateView(ConfigurationListCreateView):
+    model = Category
+    serializer_class = CategorySerializer
+
+
+class AdminCategoryDetailView(ConfigurationDetailView):
+    model = Category
+    serializer_class = CategorySerializer
+
+
+class AdminConditionListCreateView(ConfigurationListCreateView):
+    model = Condition
+    serializer_class = ConditionSerializer
+
+
+class AdminConditionDetailView(ConfigurationDetailView):
+    model = Condition
+    serializer_class = ConditionSerializer
+
+
+class AdminColorListCreateView(ConfigurationListCreateView):
+    model = Color
+    serializer_class = ColorSerializer
+
+
+class AdminColorDetailView(ConfigurationDetailView):
+    model = Color
+    serializer_class = ColorSerializer
+
+
+class AdminSizeListCreateView(ConfigurationListCreateView):
+    model = Size
+    serializer_class = SizeSerializer
+
+
+class AdminSizeDetailView(ConfigurationDetailView):
+    model = Size
+    serializer_class = SizeSerializer

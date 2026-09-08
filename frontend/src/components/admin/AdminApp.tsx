@@ -1,7 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  createProduct,
   deleteProduct,
   getAdminOrders,
   getAdminProducts,
@@ -10,24 +9,16 @@ import {
   loginAdmin,
   logoutAdmin,
   markOrderPaid,
-  type ProductInput,
   updateAdminSettings,
   updateOrderStatus,
-  updateProduct,
+  type AdminProduct,
 } from '@/services/adminApi';
 import { getApiErrorMessage } from '@/lib/api/client';
-import type { Order, Product, StoreSettings } from '@/types';
+import type { Order, StoreSettings } from '@/types';
 import ProductFormEditor from './ProductForm';
 import Configuration from './Configuration';
 
 const statuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'];
-const categories = ['SNEAKERS', 'RUNNING', 'FORMAL', 'CASUAL', 'SANDALS', 'BOOTS', 'OTHER'];
-
-const blankProduct: ProductInput = {
-  name: '', description: '', brand: '', category: 'SNEAKERS', price: '', condition: 'NEW', color: '',
-  status: 'DRAFT', is_featured: false, variants: [{ size: '', stock_quantity: 0, sku: '', is_active: true }],
-};
-
 function money(value: string | number) { return `GHS ${Number(value).toFixed(2)}`; }
 function label(value: string) { return value.replace(/_/g, ' ').toLowerCase().replace(/(^|\s)\S/g, (char: string) => char.toUpperCase()); }
 
@@ -62,27 +53,28 @@ function Orders() {
   return <section><div className="admin-heading"><div><div className="eyebrow">Fulfilment</div><h1 className="display">Orders</h1></div><select className="filter" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{label(status)}</option>)}</select></div>{query.isLoading ? <div className="admin-loading">Loading orders...</div> : query.isError ? <div className="error">{getApiErrorMessage(query.error)}</div> : <OrderTable orders={query.data || []} />}</section>;
 }
 
-function LegacyProductForm({ product, onDone }: { product?: Product; onDone: () => void }) {
-  const [form, setForm] = useState<ProductInput>(product ? { name: product.name, description: product.description || '', brand: product.brand, category: product.category, price: product.price, condition: product.condition || 'NEW', color: product.color, status: product.status, is_featured: product.is_featured, variants: product.variants?.map((variant) => ({ size: variant.size, stock_quantity: variant.stock_quantity, sku: variant.sku, is_active: variant.is_active })) || [] } : blankProduct);
+/* function LegacyProductForm({ product, onDone }: { product?: Product; onDone: () => void }) {
+  const [form, setForm] = useState<ProductInput>(product ? { name: product.name, description: product.description || '', brand: Number(product.brand), category: Number(product.category), price: product.price, condition: Number(product.condition), color: Number(product.color), status: product.status, is_featured: product.is_featured, variants: product.variants?.map((variant) => ({ size: Number(variant.size), stock_quantity: variant.stock_quantity, sku: variant.sku, is_active: variant.is_active })) || [] } : blankProduct);
   const [error, setError] = useState('');
   const queryClient = useQueryClient();
   const mutation = useMutation({ mutationFn: () => product ? updateProduct(product.id, form) : createProduct(form), onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin-products'] }); onDone(); }, onError: (reason) => setError(getApiErrorMessage(reason)) });
   const update = (key: keyof ProductInput, value: string | boolean) => setForm((current) => ({ ...current, [key]: value }));
-  const updateVariant = (index: number, key: 'size' | 'stock_quantity' | 'sku', value: string) => setForm((current) => ({ ...current, variants: current.variants.map((variant, variantIndex) => variantIndex === index ? { ...variant, [key]: key === 'stock_quantity' ? Number(value) : value } : variant) }));
   const submit = (event: FormEvent) => { event.preventDefault(); setError(''); mutation.mutate(); };
+    const updateVariant = (index: number, key: 'stock_quantity' | 'sku', value: string) => setForm((current) => ({ ...current, variants: current.variants.map((variant, variantIndex) => variantIndex === index ? { ...variant, [key]: key === 'stock_quantity' ? Number(value) : value } : variant) }));
+    return <form className="admin-form" onSubmit={submit}><div className="form-grid"><label className="field">Product name<input value={form.name} onChange={(event) => update('name', event.target.value)} required /></label><label className="field">Brand<input value={form.brand || ''} onChange={() => undefined} /></label><label className="field">Price<input type="number" min="0" step="0.01" value={form.price} onChange={(event) => update('price', event.target.value)} required /></label><label className="field">Category<select value={form.category || ''} onChange={() => undefined}>{categories.map((category) => <option key={category} value={category}>{label(category)}</option>)}</select></label><label className="field">Condition<select value={form.condition || ''} onChange={() => undefined}>{['NEW', 'LIKE_NEW', 'USED'].map((condition) => <option key={condition} value={condition}>{label(condition)}</option>)}</select></label><label className="field">Visibility<select value={form.status} onChange={(event) => update('status', event.target.value)}>{['DRAFT', 'PUBLISHED', 'HIDDEN', 'OUT_OF_STOCK'].map((status) => <option key={status} value={status}>{label(status)}</option>)}</select></label></div><label className="field">Description<textarea rows={3} value={form.description} onChange={(event) => update('description', event.target.value)} /></label><label className="field">Color<input value={form.color || ''} onChange={() => undefined} /></label><label className="check"><input type="checkbox" checked={form.is_featured} onChange={(event) => update('is_featured', event.target.checked)} /> Feature this product</label><div><div className="subheading">Sizes and stock</div>{form.variants.map((variant, index) => <div className="variant-row" key={`${index}-${variant.size}`}><input placeholder="Size" value={variant.size} readOnly /><input placeholder="Quantity" type="number" min="0" value={variant.stock_quantity} onChange={(event) => updateVariant(index, 'stock_quantity', event.target.value)} /><input placeholder="SKU" value={variant.sku} onChange={(event) => updateVariant(index, 'sku', event.target.value)} /><button type="button" className="icon-button" onClick={() => setForm((current) => ({ ...current, variants: current.variants.filter((_, variantIndex) => variantIndex !== index) }))}>×</button></div>)}</div><div className="form-actions"><button type="button" className="button secondary" onClick={onDone}>Cancel</button><button className="button">{product ? 'Save product' : 'Add product'}</button></div>{error && <div className="error">{error}</div>}</form>;
   return <form className="admin-form" onSubmit={submit}><div className="form-grid"><label className="field">Product name<input value={form.name} onChange={(event) => update('name', event.target.value)} required /></label><label className="field">Brand<input value={form.brand} onChange={(event) => update('brand', event.target.value)} /></label><label className="field">Price<input type="number" min="0" step="0.01" value={form.price} onChange={(event) => update('price', event.target.value)} required /></label><label className="field">Category<select value={form.category} onChange={(event) => update('category', event.target.value)}>{categories.map((category) => <option key={category} value={category}>{label(category)}</option>)}</select></label><label className="field">Condition<select value={form.condition} onChange={(event) => update('condition', event.target.value)}>{['NEW', 'LIKE_NEW', 'USED'].map((condition) => <option key={condition} value={condition}>{label(condition)}</option>)}</select></label><label className="field">Visibility<select value={form.status} onChange={(event) => update('status', event.target.value)}>{['DRAFT', 'PUBLISHED', 'HIDDEN', 'OUT_OF_STOCK'].map((status) => <option key={status} value={status}>{label(status)}</option>)}</select></label></div><label className="field">Description<textarea rows={3} value={form.description} onChange={(event) => update('description', event.target.value)} /></label><label className="field">Color<input value={form.color} onChange={(event) => update('color', event.target.value)} /></label><label className="check"><input type="checkbox" checked={form.is_featured} onChange={(event) => update('is_featured', event.target.checked)} /> Feature this product</label><div><div className="subheading">Sizes and stock</div>{form.variants.map((variant, index) => <div className="variant-row" key={`${index}-${variant.size}`}><input placeholder="Size" value={variant.size} onChange={(event) => updateVariant(index, 'size', event.target.value)} required /><input type="number" min="0" placeholder="Stock" value={variant.stock_quantity} onChange={(event) => updateVariant(index, 'stock_quantity', event.target.value)} /><input placeholder="SKU (optional)" value={variant.sku} onChange={(event) => updateVariant(index, 'sku', event.target.value)} /><button type="button" className="icon-button" title="Remove size" onClick={() => setForm((current) => ({ ...current, variants: current.variants.filter((_, variantIndex) => variantIndex !== index) }))}>×</button></div>)}<button type="button" className="text-button" onClick={() => setForm((current) => ({ ...current, variants: [...current.variants, { size: '', stock_quantity: 0, sku: '', is_active: true }] }))}>+ Add size</button></div>{error && <div className="error">{error}</div>}<div className="form-actions"><button type="button" className="button secondary" onClick={onDone}>Cancel</button><button className="button" disabled={mutation.isPending}>{mutation.isPending ? 'Saving...' : product ? 'Save changes' : 'Add product'}</button></div></form>;
 }
 
-void LegacyProductForm;
+} */
 
 function Products() {
-  const [editing, setEditing] = useState<Product | undefined>();
+  const [editing, setEditing] = useState<AdminProduct | undefined>();
   const [showForm, setShowForm] = useState(false);
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ['admin-products'], queryFn: getAdminProducts });
   const deleteMutation = useMutation({ mutationFn: deleteProduct, onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['admin-products'] }); } });
   if (showForm) return <section><div className="admin-heading"><div><div className="eyebrow">Catalogue</div><h1 className="display">{editing ? 'Edit product' : 'Add product'}</h1></div></div><ProductFormEditor product={editing} onDone={() => { setShowForm(false); setEditing(undefined); }} /></section>;
-  return <section><div className="admin-heading"><div><div className="eyebrow">Catalogue</div><h1 className="display">Products</h1></div><button className="button" onClick={() => setShowForm(true)}>+ Add product</button></div>{query.isLoading ? <div className="admin-loading">Loading products...</div> : query.isError ? <div className="error">Could not load products.</div> : <div className="product-admin-grid">{(query.data || []).map((product) => <article className="product-admin-card" key={product.id}><div className="product-admin-image">{product.primary_image_url && <img src={product.primary_image_url} alt="" />}</div><div className="product-admin-body"><div className="card-topline"><span className={`status status-${product.status.toLowerCase()}`}>{label(product.status)}</span><span className="muted">{product.total_stock} in stock</span></div><h3>{product.name}</h3><p className="muted">{product.brand || label(product.category)} · {money(product.price)}</p><div className="card-actions"><button className="text-button" onClick={() => { setEditing(product); setShowForm(true); }}>Edit</button><button className="text-button danger" onClick={() => { if (window.confirm(`Delete ${product.name}?`)) deleteMutation.mutate(product.id); }}>Delete</button></div></div></article>)}</div>}</section>;
+  return <section><div className="admin-heading"><div><div className="eyebrow">Catalogue</div><h1 className="display">Products</h1></div><button className="button" onClick={() => setShowForm(true)}>+ Add product</button></div>{query.isLoading ? <div className="admin-loading">Loading products...</div> : query.isError ? <div className="error">Could not load products.</div> : <div className="product-admin-grid">{(query.data || []).map((product) => <article className="product-admin-card" key={product.id}><div className="product-admin-image">{product.primary_image_url && <img src={product.primary_image_url} alt="" />}</div><div className="product-admin-body"><div className="card-topline"><span className={`status status-${product.status.toLowerCase()}`}>{label(product.status)}</span><span className="muted">{product.total_stock} in stock</span></div><h3>{product.name}</h3><p className="muted">{product.brand_name || product.category_name || 'Unconfigured'} · {money(product.price)}</p><div className="card-actions"><button className="text-button" onClick={() => { setEditing(product); setShowForm(true); }}>Edit</button><button className="text-button danger" onClick={() => { if (window.confirm(`Delete ${product.name}?`)) deleteMutation.mutate(product.id); }}>Delete</button></div></div></article>)}</div>}</section>;
 }
 
 function Settings() {

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Product, ProductImage, ProductOption, ProductVariant
+from .models import Brand, Category, Color, Condition, Product, ProductImage, ProductVariant, Size
 
 
 class ProductImageInline(admin.TabularInline):
@@ -25,7 +25,7 @@ class ProductAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_filter = ("status", "category", "brand", "is_featured")
-    search_fields = ("name", "brand", "slug")
+    search_fields = ("name", "brand__name", "category__name", "slug")
     prepopulated_fields = {"slug": ("name",)}
     readonly_fields = ("created_at", "updated_at")
     inlines = [ProductImageInline, ProductVariantInline]
@@ -41,12 +41,39 @@ class ProductImageAdmin(admin.ModelAdmin):
 class ProductVariantAdmin(admin.ModelAdmin):
     list_display = ("product", "size", "stock_quantity", "is_active", "sku")
     list_filter = ("is_active", "product")
-    search_fields = ("product__name", "sku", "size")
+    search_fields = ("product__name", "sku", "size__value")
 
 
-@admin.register(ProductOption)
-class ProductOptionAdmin(admin.ModelAdmin):
-    list_display = ("label", "option_type", "value", "created_at")
-    list_filter = ("option_type",)
-    search_fields = ("label", "value")
-    ordering = ("option_type", "label")
+@admin.register(Brand)
+class BrandAdmin(admin.ModelAdmin):
+    list_display = ("name", "created_at", "updated_at")
+    search_fields = ("name",)
+    ordering = ("name",)
+
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ("name", "value", "created_at", "updated_at")
+    search_fields = ("name", "value")
+    ordering = ("name",)
+
+
+@admin.register(Condition)
+class ConditionAdmin(admin.ModelAdmin):
+    list_display = ("name", "value", "created_at", "updated_at")
+    search_fields = ("name", "value")
+    ordering = ("name",)
+
+
+@admin.register(Color)
+class ColorAdmin(admin.ModelAdmin):
+    list_display = ("name", "created_at", "updated_at")
+    search_fields = ("name",)
+    ordering = ("name",)
+
+
+@admin.register(Size)
+class SizeAdmin(admin.ModelAdmin):
+    list_display = ("value", "created_at", "updated_at")
+    search_fields = ("value",)
+    ordering = ("value",)

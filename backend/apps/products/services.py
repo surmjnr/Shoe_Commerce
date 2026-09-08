@@ -36,7 +36,7 @@ class ProductService:
             existing_sizes = set()
             for variant_data in variants_data:
                 size = variant_data["size"]
-                existing_sizes.add(size)
+                existing_sizes.add(size.pk)
                 ProductVariant.objects.update_or_create(
                     product=product,
                     size=size,
@@ -46,14 +46,14 @@ class ProductService:
                         "is_active": variant_data.get("is_active", True),
                     },
                 )
-            product.variants.exclude(size__in=existing_sizes).delete()
+            product.variants.exclude(size_id__in=existing_sizes).delete()
 
         ProductService._sync_stock_status(product)
         return product
 
     @staticmethod
     def update_inventory(product, size, quantity):
-        variant = product.variants.get(size=size)
+        variant = product.variants.get(size__value=size)
         variant.stock_quantity = max(0, quantity)
         variant.save()
         ProductService._sync_stock_status(product)
@@ -117,6 +117,6 @@ class ProductService:
     def get_inventory(product):
         return list(
             product.variants.filter(is_active=True).values(
-                "size", "stock_quantity", "sku"
+                "size__value", "stock_quantity", "sku"
             )
         )

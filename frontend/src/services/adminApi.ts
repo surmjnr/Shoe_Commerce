@@ -1,28 +1,27 @@
 import { apiClient } from '@/lib/api/client';
-import type {
-  AdminUser,
-  AuthResponse,
-  DashboardStats,
-  Order,
-  PaginatedResponse,
-  Product,
-  StoreSettings,
-} from '@/types';
+import type { AdminUser, AuthResponse, DashboardStats, Order, PaginatedResponse, Product, StoreSettings } from '@/types';
 
 export type ProductInput = {
   name: string;
   description: string;
-  brand: string;
-  category: string;
+  brand: number | null;
+  category: number | null;
   price: string;
-  condition: string;
-  color: string;
+  condition: number | null;
+  color: number | null;
   status: string;
   is_featured: boolean;
-  variants: Array<{ size: string; stock_quantity: number; sku: string; is_active: boolean }>;
+  variants: Array<{ size: number; stock_quantity: number; sku: string; is_active: boolean }>;
 };
 
-export type ProductOption = { id: number; option_type: string; value: string; label: string; created_at: string };
+export type ConfigurationOption = { id: number; name: string; value?: string; created_at: string; updated_at: string };
+export type AdminProduct = Omit<Product, 'brand' | 'category' | 'condition' | 'color' | 'variants'> & {
+  brand: number | null; brand_name: string | null;
+  category: number | null; category_name: string | null;
+  condition: number | null; condition_name: string | null;
+  color: number | null; color_name: string | null;
+  variants?: Array<{ id: number; size: number; sku: string; stock_quantity: number; is_active: boolean }>;
+};
 
 export async function loginAdmin(email: string, password: string): Promise<AuthResponse> {
   const response = await apiClient.post<AuthResponse>('/admin/auth/login/', { email, password });
@@ -30,94 +29,46 @@ export async function loginAdmin(email: string, password: string): Promise<AuthR
   localStorage.setItem('admin_refresh_token', response.data.refresh);
   return response.data;
 }
-
-export function logoutAdmin() {
-  localStorage.removeItem('admin_access_token');
-  localStorage.removeItem('admin_refresh_token');
-}
-
-export async function getAdminUser(): Promise<AdminUser> {
-  const response = await apiClient.get<AdminUser>('/admin/auth/me/');
-  return response.data;
-}
-
-export async function getDashboard(): Promise<DashboardStats> {
-  const response = await apiClient.get<DashboardStats>('/admin/dashboard/');
-  return response.data;
-}
-
-export async function getAdminProducts(): Promise<Product[]> {
-  const response = await apiClient.get<PaginatedResponse<Product> | Product[]>('/admin/products/');
+export function logoutAdmin() { localStorage.removeItem('admin_access_token'); localStorage.removeItem('admin_refresh_token'); }
+export async function getAdminUser(): Promise<AdminUser> { return (await apiClient.get<AdminUser>('/admin/auth/me/')).data; }
+export async function getDashboard(): Promise<DashboardStats> { return (await apiClient.get<DashboardStats>('/admin/dashboard/')).data; }
+export async function getAdminProducts(): Promise<AdminProduct[]> {
+  const response = await apiClient.get<PaginatedResponse<AdminProduct> | AdminProduct[]>('/admin/products/');
   return Array.isArray(response.data) ? response.data : response.data.results;
 }
-
-export async function createProduct(payload: ProductInput): Promise<Product> {
-  const response = await apiClient.post<Product>('/admin/products/', payload);
-  return response.data;
-}
-
-export async function updateProduct(id: number, payload: Partial<ProductInput>): Promise<Product> {
-  const response = await apiClient.patch<Product>(`/admin/products/${id}/`, payload);
-  return response.data;
-}
-
-export async function deleteProduct(id: number): Promise<void> {
-  await apiClient.delete(`/admin/products/${id}/`);
-}
-
+export async function createProduct(payload: ProductInput): Promise<Product> { return (await apiClient.post<Product>('/admin/products/', payload)).data; }
+export async function updateProduct(id: number, payload: Partial<ProductInput>): Promise<Product> { return (await apiClient.patch<Product>(`/admin/products/${id}/`, payload)).data; }
+export async function deleteProduct(id: number): Promise<void> { await apiClient.delete(`/admin/products/${id}/`); }
 export async function getAdminOrders(status = ''): Promise<Order[]> {
-  const response = await apiClient.get<PaginatedResponse<Order> | Order[]>('/admin/orders/', {
-    params: status ? { status } : {},
-  });
+  const response = await apiClient.get<PaginatedResponse<Order> | Order[]>('/admin/orders/', { params: status ? { status } : {} });
   return Array.isArray(response.data) ? response.data : response.data.results;
 }
+export async function updateOrderStatus(id: number, status: string): Promise<Order> { return (await apiClient.patch<Order>(`/admin/orders/${id}/status/`, { status })).data; }
+export async function markOrderPaid(id: number): Promise<Order> { return (await apiClient.patch<Order>(`/admin/orders/${id}/payment/`)).data; }
+export async function getAdminSettings(): Promise<StoreSettings> { return (await apiClient.get<StoreSettings>('/admin/settings/')).data; }
+export async function updateAdminSettings(payload: Partial<StoreSettings>): Promise<StoreSettings> { return (await apiClient.patch<StoreSettings>('/admin/settings/', payload)).data; }
 
-export async function updateOrderStatus(id: number, status: string): Promise<Order> {
-  const response = await apiClient.patch<Order>(`/admin/orders/${id}/status/`, { status });
-  return response.data;
-}
-
-export async function markOrderPaid(id: number): Promise<Order> {
-  const response = await apiClient.patch<Order>(`/admin/orders/${id}/payment/`);
-  return response.data;
-}
-
-export async function getAdminSettings(): Promise<StoreSettings> {
-  const response = await apiClient.get<StoreSettings>('/admin/settings/');
-  return response.data;
-}
-
-export async function updateAdminSettings(payload: Partial<StoreSettings>): Promise<StoreSettings> {
-  const response = await apiClient.patch<StoreSettings>('/admin/settings/', payload);
-  return response.data;
-}
-
-export async function getProductOptions(optionType?: string): Promise<ProductOption[]> {
-  const response = await apiClient.get<PaginatedResponse<ProductOption> | ProductOption[]>('/admin/options/', { params: optionType ? { option_type: optionType } : {} });
+async function getConfiguration<T extends ConfigurationOption>(path: string): Promise<T[]> {
+  const response = await apiClient.get<PaginatedResponse<T> | T[]>(path);
   return Array.isArray(response.data) ? response.data : response.data.results;
 }
-
-export async function createProductOption(payload: { option_type: string; value: string; label: string }): Promise<ProductOption> {
-  const response = await apiClient.post<ProductOption>('/admin/options/', payload);
-  return response.data;
+export function getProductConfiguration() {
+  return Promise.all([
+    getConfiguration('/admin/configuration/brands/'), getConfiguration('/admin/configuration/categories/'),
+    getConfiguration('/admin/configuration/conditions/'), getConfiguration('/admin/configuration/colors/'),
+    getConfiguration('/admin/configuration/sizes/'),
+  ]).then(([brands, categories, conditions, colors, sizes]) => ({ brands, categories, conditions, colors, sizes }));
 }
-
-export async function updateProductOption(id: number, payload: { value: string; label: string }): Promise<ProductOption> {
-  const response = await apiClient.patch<ProductOption>(`/admin/options/${id}/`, payload);
-  return response.data;
+const configurationPaths: Record<string, string> = { BRAND: 'brands', CATEGORY: 'categories', CONDITION: 'conditions', COLOR: 'colors', SIZE: 'sizes' };
+function configurationPayload(type: string, value: string) {
+  if (type === 'CATEGORY' || type === 'CONDITION') return { value: value.toUpperCase().replace(/\s+/g, '_'), name: value };
+  return type === 'SIZE' ? { value } : { name: value };
 }
-
-export async function deleteProductOption(id: number): Promise<void> {
-  await apiClient.delete(`/admin/options/${id}/`);
-}
-
+export async function createConfiguration(type: string, value: string): Promise<ConfigurationOption> { return (await apiClient.post<ConfigurationOption>(`/admin/configuration/${configurationPaths[type]}/`, configurationPayload(type, value))).data; }
+export async function updateConfiguration(type: string, id: number, value: string): Promise<ConfigurationOption> { return (await apiClient.patch<ConfigurationOption>(`/admin/configuration/${configurationPaths[type]}/${id}/`, configurationPayload(type, value))).data; }
+export async function deleteConfiguration(type: string, id: number): Promise<void> { await apiClient.delete(`/admin/configuration/${configurationPaths[type]}/${id}/`); }
 export async function uploadProductImages(id: number, files: File[]): Promise<Product> {
-  const payload = new FormData();
-  files.forEach((file) => payload.append('images', file));
-  const response = await apiClient.post<Product>(`/admin/products/${id}/images/`, payload, { headers: { 'Content-Type': 'multipart/form-data' } });
-  return response.data;
+  const payload = new FormData(); files.forEach((file) => payload.append('images', file));
+  return (await apiClient.post<Product>(`/admin/products/${id}/images/`, payload, { headers: { 'Content-Type': 'multipart/form-data' } })).data;
 }
-
-export async function deleteProductImage(productId: number, imageId: number): Promise<void> {
-  await apiClient.delete(`/admin/products/${productId}/images/${imageId}/`);
-}
+export async function deleteProductImage(productId: number, imageId: number): Promise<void> { await apiClient.delete(`/admin/products/${productId}/images/${imageId}/`); }

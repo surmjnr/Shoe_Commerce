@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import Product, ProductCategory, ProductImage, ProductOption, ProductVariant
+from .models import Brand, Category, Color, Condition, Product, ProductImage, ProductVariant, Size
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -38,6 +38,9 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class ProductListSerializer(serializers.ModelSerializer):
+    brand = serializers.CharField(source="brand.name", read_only=True, allow_null=True)
+    category = serializers.CharField(source="category.name", read_only=True, allow_null=True)
+    color = serializers.CharField(source="color.name", read_only=True, allow_null=True)
     primary_image_url = serializers.SerializerMethodField()
     available_sizes = serializers.ListField(read_only=True)
     total_stock = serializers.IntegerField(read_only=True)
@@ -72,7 +75,7 @@ class ProductListSerializer(serializers.ModelSerializer):
 
 class ProductDetailSerializer(ProductListSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
-    variants = ProductVariantSerializer(many=True, read_only=True)
+    variants = serializers.SerializerMethodField()
 
     class Meta(ProductListSerializer.Meta):
         fields = ProductListSerializer.Meta.fields + (
@@ -83,9 +86,23 @@ class ProductDetailSerializer(ProductListSerializer):
             "updated_at",
         )
 
+    def get_variants(self, obj):
+        return [
+            {
+                "id": variant.id,
+                "size": variant.size.value if variant.size else "",
+                "sku": variant.sku,
+                "stock_quantity": variant.stock_quantity,
+                "is_active": variant.is_active,
+                "created_at": variant.created_at,
+                "updated_at": variant.updated_at,
+            }
+            for variant in obj.variants.all()
+        ]
+
 
 class ProductVariantInputSerializer(serializers.Serializer):
-    size = serializers.CharField(max_length=10)
+    size = serializers.PrimaryKeyRelatedField(queryset=Size.objects.all())
     stock_quantity = serializers.IntegerField(min_value=0, default=0)
     sku = serializers.CharField(max_length=50, required=False, allow_blank=True)
     is_active = serializers.BooleanField(default=True)
@@ -96,31 +113,14 @@ class ProductVariantInputSerializer(serializers.Serializer):
         return value
 
 
-class ProductOptionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProductOption
-        fields = ("id", "option_type", "value", "label", "created_at")
-        read_only_fields = ("id", "created_at")
-
-    def validate(self, attrs):
-        option_type = attrs.get("option_type", getattr(self.instance, "option_type", None))
-        value = attrs.get("value", getattr(self.instance, "value", "")).strip()
-        if not value:
-            raise serializers.ValidationError({"value": "This field may not be blank."})
-        query = ProductOption.objects.filter(option_type=option_type, value__iexact=value)
-        if self.instance:
-            query = query.exclude(pk=self.instance.pk)
-        if query.exists():
-            raise serializers.ValidationError({"value": "This option already exists."})
-        attrs["value"] = value
-        attrs.setdefault("label", value)
-        return attrs
-
-
 class AdminProductSerializer(serializers.ModelSerializer):
     variants = ProductVariantSerializer(many=True, read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     total_stock = serializers.IntegerField(read_only=True)
+    brand_name = serializers.CharField(source="brand.name", read_only=True, allow_null=True)
+    category_name = serializers.CharField(source="category.name", read_only=True, allow_null=True)
+    condition_name = serializers.CharField(source="condition.name", read_only=True, allow_null=True)
+    color_name = serializers.CharField(source="color.name", read_only=True, allow_null=True)
 
     class Meta:
         model = Product
@@ -130,10 +130,14 @@ class AdminProductSerializer(serializers.ModelSerializer):
             "slug",
             "description",
             "brand",
+            "brand_name",
             "category",
+            "category_name",
             "price",
             "condition",
+            "condition_name",
             "color",
+            "color_name",
             "status",
             "is_featured",
             "variants",
@@ -148,26 +152,49 @@ class AdminProductSerializer(serializers.ModelSerializer):
 class AdminProductCreateUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
     description = serializers.CharField(required=False, allow_blank=True)
-    brand = serializers.CharField(max_length=100, required=False, allow_blank=True)
-    category = serializers.CharField(max_length=100, required=True)
+    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all(), required=False, allow_null=True)
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=True)
     price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal("0.01"))
-    condition = serializers.CharField(required=True)
-    color = serializers.CharField(max_length=50, required=True)
+    condition = serializers.PrimaryKeyRelatedField(queryset=Condition.objects.all(), required=True)
+    color = serializers.PrimaryKeyRelatedField(queryset=Color.objects.all(), required=True)
     status = serializers.CharField(required=False)
     is_featured = serializers.BooleanField(required=False, default=False)
     variants = ProductVariantInputSerializer(many=True, required=False)
 
     def validate_variants(self, variants):
-        sizes = [variant["size"].strip() for variant in variants]
+        sizes = [variant["size"].pk for variant in variants]
         if any(not size for size in sizes):
             raise serializers.ValidationError("Every variant must have a size.")
         if len(sizes) != len(set(sizes)):
             raise serializers.ValidationError("A product cannot contain the same size twice.")
-        for variant, size in zip(variants, sizes):
-            variant["size"] = size
         return variants
 
 
-class CategorySerializer(serializers.Serializer):
-    value = serializers.CharField()
-    label = serializers.CharField()
+class BrandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = ("id", "name", "created_at", "updated_at")
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ("id", "value", "name", "created_at", "updated_at")
+
+
+class ConditionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Condition
+        fields = ("id", "value", "name", "created_at", "updated_at")
+
+
+class ColorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Color
+        fields = ("id", "name", "created_at", "updated_at")
+
+
+class SizeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Size
+        fields = ("id", "value", "created_at", "updated_at")

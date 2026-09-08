@@ -45,12 +45,12 @@ def filter_products(queryset, params):
     ordering = params.get("ordering", "-created_at")
 
     if category:
-        queryset = queryset.filter(category=category)
+        queryset = queryset.filter(category__value=category)
     if brand:
-        queryset = queryset.filter(brand__iexact=brand)
+        queryset = queryset.filter(brand__name__iexact=brand)
     if size:
         queryset = queryset.filter(
-            variants__size=size,
+            variants__size__value=size,
             variants__is_active=True,
             variants__stock_quantity__gt=0,
         ).distinct()
@@ -61,9 +61,9 @@ def filter_products(queryset, params):
     if search:
         queryset = queryset.filter(
             Q(name__icontains=search)
-            | Q(brand__icontains=search)
+            | Q(brand__name__icontains=search)
             | Q(description__icontains=search)
-            | Q(category__icontains=search)
+            | Q(category__name__icontains=search)
         )
     if featured and featured.lower() in ("true", "1"):
         queryset = queryset.filter(is_featured=True)
@@ -79,7 +79,7 @@ def filter_products(queryset, params):
 
 
 def get_admin_products_queryset():
-    return Product.objects.prefetch_related("variants", "images").all()
+    return Product.objects.select_related("brand", "category", "condition", "color").prefetch_related("variants__size", "images").all()
 
 
 def get_featured_products(limit=8):
@@ -93,8 +93,8 @@ def get_new_arrivals(limit=8):
 def get_distinct_brands():
     return (
         Product.objects.filter(status=ProductStatus.PUBLISHED)
-        .exclude(brand="")
-        .values_list("brand", flat=True)
+        .exclude(brand__isnull=True)
+        .values_list("brand__name", flat=True)
         .distinct()
         .order_by("brand")
     )

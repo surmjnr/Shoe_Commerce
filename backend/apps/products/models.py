@@ -2,16 +2,6 @@ from django.db import models
 from django.utils.text import slugify
 
 
-class ProductCategory(models.TextChoices):
-    SNEAKERS = "SNEAKERS", "Sneakers"
-    RUNNING = "RUNNING", "Running"
-    FORMAL = "FORMAL", "Formal"
-    CASUAL = "CASUAL", "Casual"
-    SANDALS = "SANDALS", "Sandals"
-    BOOTS = "BOOTS", "Boots"
-    OTHER = "OTHER", "Other"
-
-
 class ProductStatus(models.TextChoices):
     DRAFT = "DRAFT", "Draft"
     PUBLISHED = "PUBLISHED", "Published"
@@ -19,51 +9,75 @@ class ProductStatus(models.TextChoices):
     OUT_OF_STOCK = "OUT_OF_STOCK", "Out of Stock"
 
 
-class ProductCondition(models.TextChoices):
-    NEW = "NEW", "New"
-    LIKE_NEW = "LIKE_NEW", "Like New"
-    USED = "USED", "Used"
-
-
-class ProductOptionType(models.TextChoices):
-    BRAND = "BRAND", "Brand"
-    CATEGORY = "CATEGORY", "Category"
-    CONDITION = "CONDITION", "Condition"
-    COLOR = "COLOR", "Color"
-    SIZE = "SIZE", "Size"
-
-
-class ProductOption(models.Model):
-    option_type = models.CharField(max_length=20, choices=ProductOptionType.choices)
-    value = models.CharField(max_length=100)
-    label = models.CharField(max_length=100)
+class ConfigurationBase(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["option_type", "label"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["option_type", "value"], name="unique_product_option_value"
-            )
-        ]
+        abstract = True
+
+
+class Brand(ConfigurationBase):
+    name = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        ordering = ["name"]
 
     def __str__(self):
-        return f"{self.get_option_type_display()}: {self.label}"
+        return self.name
+
+
+class Category(ConfigurationBase):
+    value = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Condition(ConfigurationBase):
+    value = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Color(ConfigurationBase):
+    name = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Size(ConfigurationBase):
+    value = models.CharField(max_length=20, unique=True)
+
+    class Meta:
+        ordering = ["value"]
+
+    def __str__(self):
+        return self.value
 
 
 class Product(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, unique=True, blank=True)
     description = models.TextField(blank=True)
-    brand = models.CharField(max_length=100, blank=True)
-    category = models.CharField(
-        max_length=100, choices=ProductCategory.choices, default=ProductCategory.SNEAKERS
-    )
+    brand = models.ForeignKey(Brand, on_delete=models.PROTECT, blank=True, null=True, related_name="products")
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, blank=True, null=True, related_name="products")
     price = models.DecimalField(max_digits=10, decimal_places=2)
-    condition = models.CharField(
-        max_length=100, choices=ProductCondition.choices, default=ProductCondition.NEW
-    )
-    color = models.CharField(max_length=50, blank=True)
+    condition = models.ForeignKey(Condition, on_delete=models.PROTECT, blank=True, null=True, related_name="products")
+    color = models.ForeignKey(Color, on_delete=models.PROTECT, blank=True, null=True, related_name="products")
     status = models.CharField(
         max_length=20, choices=ProductStatus.choices, default=ProductStatus.DRAFT
     )
@@ -104,7 +118,7 @@ class Product(models.Model):
     def available_sizes(self):
         return list(
             self.variants.filter(is_active=True, stock_quantity__gt=0)
-            .values_list("size", flat=True)
+            .values_list("size__value", flat=True)
             .order_by("size")
         )
 
@@ -133,7 +147,7 @@ class ProductVariant(models.Model):
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name="variants"
     )
-    size = models.CharField(max_length=10)
+    size = models.ForeignKey(Size, on_delete=models.PROTECT, null=True, related_name="variants")
     sku = models.CharField(max_length=50, blank=True)
     stock_quantity = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
@@ -145,4 +159,4 @@ class ProductVariant(models.Model):
         ordering = ["size"]
 
     def __str__(self):
-        return f"{self.product.name} - Size {self.size}"
+        return f"{self.product.name} - Size {self.size.value if self.size else 'Unknown'}"
