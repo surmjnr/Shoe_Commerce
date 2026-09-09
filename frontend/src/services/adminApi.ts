@@ -39,8 +39,18 @@ export async function getAdminProducts(): Promise<AdminProduct[]> {
 export async function createProduct(payload: ProductInput): Promise<Product> { return (await apiClient.post<Product>('/admin/products/', payload)).data; }
 export async function updateProduct(id: number, payload: Partial<ProductInput>): Promise<Product> { return (await apiClient.patch<Product>(`/admin/products/${id}/`, payload)).data; }
 export async function deleteProduct(id: number): Promise<void> { await apiClient.delete(`/admin/products/${id}/`); }
-export async function getAdminOrders(status = ''): Promise<Order[]> {
-  const response = await apiClient.get<PaginatedResponse<Order> | Order[]>('/admin/orders/', { params: status ? { status } : {} });
+export type AdminOrderFilters = {
+  status?: string;
+  payment_status?: string;
+  payment_method?: string;
+  search?: string;
+};
+
+export async function getAdminOrders(filters: AdminOrderFilters = {}): Promise<Order[]> {
+  const params = Object.fromEntries(
+    Object.entries(filters).filter(([, value]) => value !== undefined && value !== null && value !== ''),
+  );
+  const response = await apiClient.get<PaginatedResponse<Order> | Order[]>('/admin/orders/', { params });
   return Array.isArray(response.data) ? response.data : response.data.results;
 }
 export async function updateOrderStatus(id: number, status: string): Promise<Order> { return (await apiClient.patch<Order>(`/admin/orders/${id}/status/`, { status })).data; }

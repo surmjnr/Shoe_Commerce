@@ -48,9 +48,45 @@ function OrderTable({ orders, compact = false }: { orders: Order[]; compact?: bo
 }
 
 function Orders() {
-  const [filter, setFilter] = useState('');
-  const query = useQuery({ queryKey: ['admin-orders', filter], queryFn: () => getAdminOrders(filter) });
-  return <section><div className="admin-heading"><div><div className="eyebrow">Fulfilment</div><h1 className="display">Orders</h1></div><select className="filter" value={filter} onChange={(event) => setFilter(event.target.value)}><option value="">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{label(status)}</option>)}</select></div>{query.isLoading ? <div className="admin-loading">Loading orders...</div> : query.isError ? <div className="error">{getApiErrorMessage(query.error)}</div> : <OrderTable orders={query.data || []} />}</section>;
+  const [statusFilter, setStatusFilter] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState('');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  const query = useQuery({
+    queryKey: ['admin-orders', { status: statusFilter, payment_status: paymentFilter, search: debouncedSearch }],
+    queryFn: () => getAdminOrders({
+      status: statusFilter || undefined,
+      payment_status: paymentFilter || undefined,
+      search: debouncedSearch || undefined,
+    }),
+  });
+
+  return <section>
+    <div className="admin-heading">
+      <div><div className="eyebrow">Fulfilment</div><h1 className="display">Orders</h1></div>
+      <div className="admin-order-filters">
+        <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search order or customer" aria-label="Search orders" />
+        <select className="filter" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)}>
+          <option value="">All payment status</option>
+          <option value="PAID">Paid</option>
+          <option value="PENDING">Not paid</option>
+          <option value="FAILED">Failed</option>
+          <option value="REFUNDED">Refunded</option>
+        </select>
+        <select className="filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+          <option value="">All statuses</option>
+          {statuses.map((status) => <option key={status} value={status}>{label(status)}</option>)}
+        </select>
+      </div>
+    </div>
+    {query.isLoading ? <div className="admin-loading">Loading orders...</div> : query.isError ? <div className="error">{getApiErrorMessage(query.error)}</div> : <OrderTable orders={query.data || []} />}
+  </section>;
 }
 
 /* function LegacyProductForm({ product, onDone }: { product?: Product; onDone: () => void }) {

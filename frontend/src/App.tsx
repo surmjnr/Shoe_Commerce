@@ -1,10 +1,10 @@
-import { FormEvent, ReactNode, useState } from 'react';
-import { Link, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { createOrder, getProduct, getProducts, getStoreSettings, trackOrder, type CreateOrderInput } from '@/services/storeApi';
+import { createOrder, getProduct, getProductFilterOptions, getProducts, getStoreSettings, trackOrder, type CreateOrderInput, type ProductFilters } from '@/services/storeApi';
 import { getApiErrorMessage } from '@/lib/api/client';
 import { useCartStore } from '@/stores/cart';
 import type { Product, ProductVariant } from '@/types';
@@ -18,7 +18,7 @@ function Header() {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
   return <header className="header"><div className="container header-inner">
-    <button className="icon-button mobile-menu" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen(true)}>☰</button>
+    <button className="icon-button mobile-menu" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>☰</button>
     <Link className="logo" to="/" onClick={close}>{settings.data?.business_name || 'SOLE / HOUSE'}</Link>
     <nav className={`nav${open ? ' nav-open' : ''}`} aria-label="Main navigation"><button className="icon-button menu-close" aria-label="Close menu" onClick={close}>×</button><Link to="/products" onClick={close}>Shop</Link><Link to="/products?featured=true" onClick={close}>New arrivals</Link><Link to="/track" onClick={close}>Track order</Link></nav>
     <Link className="cart-link" to="/cart" aria-label={`Cart, ${count} items`}>Cart <span>{count}</span></Link>{open && <button className="menu-backdrop" aria-label="Close menu" onClick={close} />}
@@ -33,11 +33,11 @@ function ProductCard({ product }: { product: Product }) {
   </Link>;
 }
 
-function ProductGrid({ search = '' }: { search?: string }) {
-  const query = useQuery({ queryKey: ['products', search], queryFn: () => getProducts(search) });
+function ProductGrid({ filters = {}, search = '' }: { filters?: ProductFilters; search?: string }) {
+  const query = useQuery({ queryKey: ['products', { ...filters, search }], queryFn: () => getProducts({ ...filters, search }) });
   if (query.isLoading) return <div className="empty">Loading the collection...</div>;
   if (query.isError) return <div className="empty">We could not load the collection. Please try again.</div>;
-  if (!query.data?.length) return <div className="empty">No shoes found. Try a different search.</div>;
+  if (!query.data?.length) return <div className="empty">No shoes match the selected filters. Try adjusting your search or resetting the filters.</div>;
   return <div className="grid">{query.data.map((product) => <ProductCard key={product.id} product={product} />)}</div>;
 }
 
@@ -54,9 +54,52 @@ function Home() {
 }
 
 function Products() {
-  const [search, setSearch] = useState(new URLSearchParams(window.location.search).get('search') || '');
-  const submit = (event: FormEvent) => { event.preventDefault(); setSearch(search.trim()); };
-  return <main className="container page"><div className="section-head"><div><div className="eyebrow">Shop</div><h1 className="display">The collection</h1></div></div><form className="search" onSubmit={submit}><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by name or brand" aria-label="Search products" /><button className="button" type="submit">Search</button></form><section className="section"><ProductGrid search={search} /></section></main>;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filterOptions = useQuery({ queryKey: ['product-filter-options'], queryFn: getProductFilterOptions });
+  const searchValue = searchParams.get('search') || '';
+  const filters = useMemo<ProductFilters>(() => ({
+    brand: searchParams.get('brand') || undefined,
+    category: searchParams.get('category') || undefined,
+    condition: searchParams.get('condition') || undefined,
+    color: searchParams.get('color') || undefined,
+    size: searchParams.get('size') || undefined,
+    min_price: searchParams.get('min_price') || undefined,
+    max_price: searchParams.get('max_price') || undefined,
+  }), [searchParams]);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [draftSearch, setDraftSearch] = useState(searchValue);
+  useEffect(() => setDraftSearch(searchValue), [searchValue]);
+  const updateFilter = (key: keyof ProductFilters, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value && value.trim()) next.set(key, value.trim()); else next.delete(key);
+    setSearchParams(next);
+  };
+  const applySearch = (event: FormEvent) => {
+    event.preventDefault();
+    const next = new URLSearchParams(searchParams);
+    const trimmed = draftSearch.trim();
+    if (trimmed) next.set('search', trimmed); else next.delete('search');
+    setSearchParams(next);
+  };
+  const clearFilters = () => {
+    const next = new URLSearchParams(searchParams);
+    ['brand', 'category', 'condition', 'color', 'size', 'min_price', 'max_price', 'search'].forEach((key) => next.delete(key));
+    setSearchParams(next);
+  };
+  const activeFilters = Object.entries(filters).filter(([, value]) => Boolean(value)).map(([key, value]) => ({ key, value }));
+  const hasFilters = activeFilters.length > 0 || Boolean(searchValue);
+
+  return <main className="container page"><div className="section-head"><div><div className="eyebrow">Shop</div><h1 className="display">The collection</h1></div><button className="button secondary mobile-filter-toggle" type="button" onClick={() => setMobileOpen((value) => !value)}>Filters</button></div><div className="product-list-layout"><aside className={`product-filters ${mobileOpen ? 'open' : ''}`}>
+    <div className="filter-header"><strong>Filters</strong><button type="button" className="text-button" onClick={() => setMobileOpen(false)}>Close</button></div>
+    <div className="filter-group"><label>Brand<select value={filters.brand || ''} onChange={(event) => updateFilter('brand', event.target.value)}><option value="">Any brand</option>{(filterOptions.data?.brands || []).map((option) => <option key={option.id} value={option.name}>{option.name}</option>)}</select></label></div>
+    <div className="filter-group"><label>Category<select value={filters.category || ''} onChange={(event) => updateFilter('category', event.target.value)}><option value="">Any category</option>{(filterOptions.data?.categories || []).map((option) => <option key={option.id} value={option.name || option.value}>{option.name || option.value}</option>)}</select></label></div>
+    <div className="filter-group"><label>Condition<select value={filters.condition || ''} onChange={(event) => updateFilter('condition', event.target.value)}><option value="">Any condition</option>{(filterOptions.data?.conditions || []).map((option) => <option key={option.id} value={option.name || option.value}>{option.name || option.value}</option>)}</select></label></div>
+    <div className="filter-group"><label>Color<select value={filters.color || ''} onChange={(event) => updateFilter('color', event.target.value)}><option value="">Any color</option>{(filterOptions.data?.colors || []).map((option) => <option key={option.id} value={option.name}>{option.name}</option>)}</select></label></div>
+    <div className="filter-group"><label>Size<select value={filters.size || ''} onChange={(event) => updateFilter('size', event.target.value)}><option value="">Any size</option>{(filterOptions.data?.sizes || []).map((option) => <option key={option.id} value={option.value}>{option.value}</option>)}</select></label></div>
+    <div className="filter-grid"><label>Min price<input type="number" min="0" step="0.01" value={filters.min_price || ''} onChange={(event) => updateFilter('min_price', event.target.value)} placeholder="Min" /></label><label>Max price<input type="number" min="0" step="0.01" value={filters.max_price || ''} onChange={(event) => updateFilter('max_price', event.target.value)} placeholder="Max" /></label></div>
+    <div className="filter-actions"><button type="button" className="button secondary" onClick={clearFilters}>Reset</button><button type="button" className="button" onClick={() => setMobileOpen(false)}>Apply filters</button></div>
+  </aside>{mobileOpen && <button type="button" className="filter-backdrop" aria-label="Close filters" onClick={() => setMobileOpen(false)} />}
+    <section className="products-main"><form className="search" onSubmit={applySearch}><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="Search by name or brand" aria-label="Search products" /><button className="button" type="submit">Search</button></form>{hasFilters && <div className="active-filters"><span>Applied:</span>{activeFilters.map(({ key, value }) => <button type="button" className="chip" key={key} onClick={() => updateFilter(key as keyof ProductFilters, '')}>{key.replace(/_/g, ' ')}: {value}</button>)}{searchValue && <button type="button" className="chip" onClick={() => { const next = new URLSearchParams(searchParams); next.delete('search'); setSearchParams(next); }}>search: {searchValue}</button>}</div>}<ProductGrid filters={filters} search={searchValue} /></section></div></main>;
 }
 
 function ProductDetail() {

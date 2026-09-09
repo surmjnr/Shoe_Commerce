@@ -66,7 +66,14 @@ class AdminOrderListView(generics.ListAPIView):
     serializer_class = AdminOrderSerializer
 
     def get_queryset(self):
-        return OrderService.get_orders({"status": self.request.query_params.get("status")})
+        return OrderService.get_orders(
+            {
+                "status": self.request.query_params.get("status"),
+                "payment_status": self.request.query_params.get("payment_status"),
+                "payment_method": self.request.query_params.get("payment_method"),
+                "search": self.request.query_params.get("search"),
+            }
+        )
 
 
 class AdminOrderDetailView(generics.RetrieveAPIView):

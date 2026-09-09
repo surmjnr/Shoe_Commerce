@@ -117,6 +117,7 @@ class AdminProductSerializer(serializers.ModelSerializer):
     variants = ProductVariantSerializer(many=True, read_only=True)
     images = ProductImageSerializer(many=True, read_only=True)
     total_stock = serializers.IntegerField(read_only=True)
+    primary_image_url = serializers.SerializerMethodField()
     brand_name = serializers.CharField(source="brand.name", read_only=True, allow_null=True)
     category_name = serializers.CharField(source="category.name", read_only=True, allow_null=True)
     condition_name = serializers.CharField(source="condition.name", read_only=True, allow_null=True)
@@ -140,6 +141,7 @@ class AdminProductSerializer(serializers.ModelSerializer):
             "color_name",
             "status",
             "is_featured",
+            "primary_image_url",
             "variants",
             "images",
             "total_stock",
@@ -147,6 +149,15 @@ class AdminProductSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "slug", "created_at", "updated_at")
+
+    def get_primary_image_url(self, obj):
+        image = obj.primary_image
+        if image and image.image:
+            request = self.context.get("request")
+            if request:
+                return request.build_absolute_uri(image.image.url)
+            return image.image.url
+        return None
 
 
 class AdminProductCreateUpdateSerializer(serializers.Serializer):

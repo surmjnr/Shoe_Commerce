@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from django.utils.text import slugify
 
 
@@ -157,6 +158,13 @@ class ProductVariant(models.Model):
     class Meta:
         unique_together = ["product", "size"]
         ordering = ["size"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sku"],
+                condition=~Q(sku=""),
+                name="unique_non_empty_sku",
+            )
+        ]
 
     def __str__(self):
         return f"{self.product.name} - Size {self.size.value if self.size else 'Unknown'}"

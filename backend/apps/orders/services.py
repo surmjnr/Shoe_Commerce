@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 
 from apps.common.models import StoreSettings
 from apps.products.models import Product, ProductStatus, ProductVariant
@@ -229,7 +229,22 @@ class OrderService:
         if status:
             queryset = queryset.filter(order_status=status)
 
-        return queryset
+        payment_status = filters.get("payment_status")
+        if payment_status:
+            queryset = queryset.filter(payment_status=payment_status)
+
+        payment_method = filters.get("payment_method")
+        if payment_method:
+            queryset = queryset.filter(payment_method=payment_method)
+
+        search = filters.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(order_number__icontains=search)
+                | Q(buyer_name__icontains=search)
+            )
+
+        return queryset.order_by("-created_at")
 
     @staticmethod
     def get_order(order_id):

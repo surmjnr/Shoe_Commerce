@@ -60,6 +60,21 @@ class BrandListView(APIView):
         return Response(BrandSerializer(Brand.objects.all(), many=True).data)
 
 
+class ConditionListView(APIView):
+    def get(self, request):
+        return Response(ConditionSerializer(Condition.objects.all(), many=True).data)
+
+
+class ColorListView(APIView):
+    def get(self, request):
+        return Response(ColorSerializer(Color.objects.all(), many=True).data)
+
+
+class SizeListView(APIView):
+    def get(self, request):
+        return Response(SizeSerializer(Size.objects.all(), many=True).data)
+
+
 class FeaturedProductsView(generics.ListAPIView):
     serializer_class = ProductListSerializer
 

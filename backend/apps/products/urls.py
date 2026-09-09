@@ -17,10 +17,13 @@ from .views import (
     AdminSizeListCreateView,
     BrandListView,
     CategoryListView,
+    ColorListView,
+    ConditionListView,
     FeaturedProductsView,
     NewArrivalsView,
     ProductDetailView,
     ProductListView,
+    SizeListView,
 )
 
 urlpatterns = [
@@ -30,6 +33,9 @@ urlpatterns = [
     path("products/<slug:slug>/", ProductDetailView.as_view(), name="product-detail"),
     path("categories/", CategoryListView.as_view(), name="category-list"),
     path("brands/", BrandListView.as_view(), name="brand-list"),
+    path("conditions/", ConditionListView.as_view(), name="condition-list"),
+    path("colors/", ColorListView.as_view(), name="color-list"),
+    path("sizes/", SizeListView.as_view(), name="size-list"),
     path("admin/products/", AdminProductListCreateView.as_view(), name="admin-product-list"),
     path(
         "admin/products/<int:pk>/",

@@ -37,6 +37,8 @@ def get_product_by_slug(slug):
 def filter_products(queryset, params):
     category = params.get("category")
     brand = params.get("brand")
+    condition = params.get("condition")
+    color = params.get("color")
     size = params.get("size")
     min_price = params.get("min_price")
     max_price = params.get("max_price")
@@ -45,14 +47,17 @@ def filter_products(queryset, params):
     ordering = params.get("ordering", "-created_at")
 
     if category:
-        queryset = queryset.filter(category__value=category)
+        queryset = queryset.filter(category__value__iexact=category)
     if brand:
         queryset = queryset.filter(brand__name__iexact=brand)
+    if condition:
+        queryset = queryset.filter(condition__value__iexact=condition)
+    if color:
+        queryset = queryset.filter(color__name__iexact=color)
     if size:
         queryset = queryset.filter(
-            variants__size__value=size,
+            variants__size__value__iexact=size,
             variants__is_active=True,
-            variants__stock_quantity__gt=0,
         ).distinct()
     if min_price:
         queryset = queryset.filter(price__gte=min_price)
@@ -64,6 +69,7 @@ def filter_products(queryset, params):
             | Q(brand__name__icontains=search)
             | Q(description__icontains=search)
             | Q(category__name__icontains=search)
+            | Q(color__name__icontains=search)
         )
     if featured and featured.lower() in ("true", "1"):
         queryset = queryset.filter(is_featured=True)
