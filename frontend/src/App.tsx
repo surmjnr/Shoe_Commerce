@@ -11,6 +11,11 @@ import type { Product, ProductVariant } from '@/types';
 import AdminApp from '@/components/admin/AdminApp';
 
 const money = (value: string | number) => `GHS ${Number(value).toFixed(2)}`;
+const customerNavItems = [
+  { to: '/products', label: 'Shop' },
+  { to: '/products?featured=true', label: 'New arrivals' },
+  { to: '/track', label: 'Track order' },
+];
 
 function Header() {
   const count = useCartStore((state) => state.items.reduce((total, item) => total + item.quantity, 0));
@@ -20,7 +25,12 @@ function Header() {
   return <header className="header"><div className="container header-inner">
     <button className="icon-button mobile-menu" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>☰</button>
     <Link className="logo" to="/" onClick={close}>{settings.data?.business_name || 'SOLE / HOUSE'}</Link>
-    <nav className={`nav${open ? ' nav-open' : ''}`} aria-label="Main navigation"><button className="icon-button menu-close" aria-label="Close menu" onClick={close}>×</button><Link to="/products" onClick={close}>Shop</Link><Link to="/products?featured=true" onClick={close}>New arrivals</Link><Link to="/track" onClick={close}>Track order</Link></nav>
+    <nav className={`nav${open ? ' nav-open' : ''}`} aria-label="Main navigation">
+      <button className="icon-button menu-close" aria-label="Close menu" onClick={close}>×</button>
+      {customerNavItems.map(({ to, label }) => (
+        <Link key={to} to={to} onClick={close}>{label}</Link>
+      ))}
+    </nav>
     <Link className="cart-link" to="/cart" aria-label={`Cart, ${count} items`}>Cart <span>{count}</span></Link>{open && <button className="menu-backdrop" aria-label="Close menu" onClick={close} />}
   </div></header>;
 }
@@ -90,7 +100,7 @@ function Products() {
   const hasFilters = activeFilters.length > 0 || Boolean(searchValue);
 
   return <main className="container page"><div className="section-head"><div><div className="eyebrow">Shop</div><h1 className="display">The collection</h1></div><button className="button secondary mobile-filter-toggle" type="button" onClick={() => setMobileOpen((value) => !value)}>Filters</button></div><div className="product-list-layout"><aside className={`product-filters ${mobileOpen ? 'open' : ''}`}>
-    <div className="filter-header"><strong>Filters</strong><button type="button" className="text-button" onClick={() => setMobileOpen(false)}>Close</button></div>
+    <div className="filter-header"><strong>Filters</strong>{mobileOpen && <button type="button" className="text-button filter-close-button" onClick={() => setMobileOpen(false)} aria-label="Close filters">Close</button>}</div>
     <div className="filter-group"><label>Brand<select value={filters.brand || ''} onChange={(event) => updateFilter('brand', event.target.value)}><option value="">Any brand</option>{(filterOptions.data?.brands || []).map((option) => <option key={option.id} value={option.name}>{option.name}</option>)}</select></label></div>
     <div className="filter-group"><label>Category<select value={filters.category || ''} onChange={(event) => updateFilter('category', event.target.value)}><option value="">Any category</option>{(filterOptions.data?.categories || []).map((option) => <option key={option.id} value={option.name || option.value}>{option.name || option.value}</option>)}</select></label></div>
     <div className="filter-group"><label>Condition<select value={filters.condition || ''} onChange={(event) => updateFilter('condition', event.target.value)}><option value="">Any condition</option>{(filterOptions.data?.conditions || []).map((option) => <option key={option.id} value={option.name || option.value}>{option.name || option.value}</option>)}</select></label></div>

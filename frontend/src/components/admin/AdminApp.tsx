@@ -124,10 +124,43 @@ function Settings() {
   return <section><div className="admin-heading"><div><div className="eyebrow">Storefront</div><h1 className="display">Store settings</h1></div></div><form className="admin-form settings-form" onSubmit={(event) => { event.preventDefault(); mutation.mutate(); }}><div className="form-grid"><label className="field">Business name<input value={form.business_name || ''} onChange={(event) => update('business_name', event.target.value)} /></label><label className="field">Phone<input value={form.phone || ''} onChange={(event) => update('phone', event.target.value)} /></label><label className="field">WhatsApp number<input value={form.whatsapp_number || ''} onChange={(event) => update('whatsapp_number', event.target.value)} /></label><label className="field">Email<input type="email" value={form.email || ''} onChange={(event) => update('email', event.target.value)} /></label><label className="field">Currency<input value={form.currency || ''} onChange={(event) => update('currency', event.target.value)} /></label><label className="field">Delivery fee<input type="number" min="0" step="0.01" value={form.delivery_fee || ''} onChange={(event) => update('delivery_fee', event.target.value)} /></label></div><label className="field">Address<textarea rows={2} value={form.address || ''} onChange={(event) => update('address', event.target.value)} /></label><label className="field">Store description<textarea rows={3} value={form.description || ''} onChange={(event) => update('description', event.target.value)} /></label><label className="field">Delivery information<textarea rows={3} value={form.delivery_information || ''} onChange={(event) => update('delivery_information', event.target.value)} /></label><label className="field">Payment information<textarea rows={3} value={form.payment_information || ''} onChange={(event) => update('payment_information', event.target.value)} /></label><div className="form-actions"><button className="button" disabled={mutation.isPending}>{mutation.isPending ? 'Saving...' : 'Save settings'}</button></div>{mutation.isError && <div className="error">{getApiErrorMessage(mutation.error)}</div>}{mutation.isSuccess && <div className="success">Settings saved.</div>}</form></section>;
 }
 
+const sellerNavigation = [
+  ['overview', 'Overview'],
+  ['products', 'Products'],
+  ['orders', 'Orders'],
+  ['settings', 'Settings'],
+  ['configuration', 'Configuration'],
+] as const;
+
 export default function AdminApp() {
   const [authenticated, setAuthenticated] = useState(Boolean(localStorage.getItem('admin_access_token')));
   const [tab, setTab] = useState<'overview' | 'products' | 'orders' | 'settings' | 'configuration'>('overview');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   if (!authenticated) return <Login />;
+  const currentPage = sellerNavigation.find(([value]) => value === tab)?.[1] || 'Overview';
   const signOut = () => { logoutAdmin(); setAuthenticated(false); };
-  return <div className="admin-shell"><aside className="admin-sidebar"><div className="admin-brand"><span className="eyebrow">Sole / House</span><strong>Seller workspace</strong></div><nav className="admin-nav" aria-label="Seller navigation">{[['overview', 'Overview'], ['products', 'Products'], ['orders', 'Orders'], ['settings', 'Settings'], ['configuration', 'Configuration']].map(([value, text]) => <button className={tab === value ? 'active' : ''} key={value} onClick={() => setTab(value as typeof tab)}>{text}</button>)}</nav><a className="admin-storefront-link" href="/" target="_blank" rel="noreferrer">View storefront ↗</a><button className="admin-signout" onClick={signOut}>Sign out</button></aside><main className="admin-main">{tab === 'overview' && <Overview onOrders={() => setTab('orders')} />}{tab === 'products' && <Products />}{tab === 'orders' && <Orders />}{tab === 'settings' && <Settings />}{tab === 'configuration' && <Configuration />}</main></div>;
+  return <div className="admin-shell"><aside className={`admin-sidebar ${mobileNavOpen ? 'open' : ''}`}>
+    <div className="admin-brand"><span className="eyebrow">Sole / House</span><strong>Seller workspace</strong></div>
+    <nav className="admin-nav" aria-label="Seller navigation">{sellerNavigation.map(([value, text]) => <button className={tab === value ? 'active' : ''} key={value} onClick={() => { setTab(value); setMobileNavOpen(false); }}>{text}</button>)}</nav>
+    <a className="admin-storefront-link" href="/" target="_blank" rel="noreferrer">View storefront ↗</a>
+    <button className="admin-signout" onClick={signOut}>Sign out</button>
+  </aside>
+  {mobileNavOpen && <button type="button" className="admin-drawer-backdrop" aria-label="Close seller navigation" onClick={() => setMobileNavOpen(false)} />}
+  <div className="admin-main-panel">
+    <header className="admin-header">
+      <div className="admin-header-main">
+        <button type="button" className="admin-mobile-toggle" aria-label="Open seller navigation" aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen((value) => !value)}>☰</button>
+        <div>
+          <div className="eyebrow">Seller workspace</div>
+          <h2>{currentPage}</h2>
+        </div>
+      </div>
+      <div className="admin-header-actions">
+        <a className="admin-header-link" href="/" target="_blank" rel="noreferrer">View storefront</a>
+        <button className="button secondary admin-header-signout" onClick={signOut}>Sign out</button>
+      </div>
+    </header>
+    <main className="admin-main">{tab === 'overview' && <Overview onOrders={() => setTab('orders')} />}{tab === 'products' && <Products />}{tab === 'orders' && <Orders />}{tab === 'settings' && <Settings />}{tab === 'configuration' && <Configuration />}</main>
+  </div>
+  </div>;
 }
