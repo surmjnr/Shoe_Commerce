@@ -344,7 +344,6 @@ th, td { border-color: #eeeae5; }
   text-decoration: none;
   flex-shrink: 0;
 }
-.cart-label { font-weight: 600; }
 .cart-count {
   display: inline-grid;
   place-items: center;
@@ -847,7 +846,6 @@ th, td { border-color: #eeeae5; }
 }
 
 @media (max-width: 520px) {
-  .cart-label { display: none; }
   .hero { padding-top: 32px; }
   .hero__title { font-size: clamp(2.2rem, 10vw, 3rem); }
   .featured-showcase { min-height: 340px; padding: 20px; border-radius: 16px; }

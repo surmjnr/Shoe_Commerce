@@ -88,7 +88,6 @@ export function Header() {
             <circle cx="9" cy="20" r="1.2" fill="currentColor" />
             <circle cx="18" cy="20" r="1.2" fill="currentColor" />
           </svg>
-          <span className="cart-label">Cart</span>
           {count > 0 && <span className="cart-count">{count}</span>}
         </Link>
 
