@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState } from 'react';
 
 import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -60,29 +60,11 @@ function Products() {
 
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const [draftSearch, setDraftSearch] = useState(searchValue);
-
-  useEffect(() => setDraftSearch(searchValue), [searchValue]);
-
   const updateFilter = (key: keyof ProductFilters, value: string) => {
 
     const next = new URLSearchParams(searchParams);
 
     if (value && value.trim()) next.set(key, value.trim()); else next.delete(key);
-
-    setSearchParams(next);
-
-  };
-
-  const applySearch = (event: FormEvent) => {
-
-    event.preventDefault();
-
-    const next = new URLSearchParams(searchParams);
-
-    const trimmed = draftSearch.trim();
-
-    if (trimmed) next.set('search', trimmed); else next.delete('search');
 
     setSearchParams(next);
 
@@ -124,7 +106,7 @@ function Products() {
 
   </aside>{mobileOpen && <button type="button" className="filter-backdrop" aria-label="Close filters" onClick={() => setMobileOpen(false)} />}
 
-    <section className="products-main"><form className="search" onSubmit={applySearch}><input value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="Search by name or brand" aria-label="Search products" /><button className="button" type="submit">Search</button></form>{hasFilters && <div className="active-filters"><span>Applied:</span>{activeFilters.map(({ key, value }) => <button type="button" className="chip" key={key} onClick={() => updateFilter(key as keyof ProductFilters, '')}>{key.replace(/_/g, ' ')}: {value}</button>)}{searchValue && <button type="button" className="chip" onClick={() => { const next = new URLSearchParams(searchParams); next.delete('search'); setSearchParams(next); }}>search: {searchValue}</button>}</div>}<ProductGrid filters={filters} search={searchValue} /></section></div></main>;
+    <section className="products-main">{hasFilters && <div className="active-filters"><span>Applied:</span>{activeFilters.map(({ key, value }) => <button type="button" className="chip" key={key} onClick={() => updateFilter(key as keyof ProductFilters, '')}>{key.replace(/_/g, ' ')}: {value}</button>)}{searchValue && <button type="button" className="chip" onClick={() => { const next = new URLSearchParams(searchParams); next.delete('search'); setSearchParams(next); }}>search: {searchValue}</button>}</div>}<ProductGrid filters={filters} search={searchValue} /></section></div></main>;
 
 }
 
