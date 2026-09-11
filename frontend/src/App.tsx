@@ -54,8 +54,6 @@ function Products() {
 
     max_price: searchParams.get('max_price') || undefined,
 
-    featured: searchParams.get('featured') === 'true' ? true : undefined,
-
   }), [searchParams]);
 
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -74,7 +72,7 @@ function Products() {
 
     const next = new URLSearchParams(searchParams);
 
-    ['brand', 'category', 'condition', 'color', 'size', 'min_price', 'max_price', 'search', 'featured'].forEach((key) => next.delete(key));
+    ['brand', 'category', 'condition', 'color', 'size', 'min_price', 'max_price', 'search'].forEach((key) => next.delete(key));
 
     setSearchParams(next);
 

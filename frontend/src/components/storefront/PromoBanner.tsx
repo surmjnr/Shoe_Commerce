@@ -10,7 +10,7 @@ export function PromoBanner() {
           <p className="promo-banner__text">
             Handpicked styles for your next outing. Explore featured footwear curated for comfort and confidence.
           </p>
-          <Link className="button promo-banner__cta" to="/products?featured=true">
+          <Link className="button promo-banner__cta" to="/products">
             Shop featured
           </Link>
         </div>

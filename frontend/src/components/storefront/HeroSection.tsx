@@ -21,8 +21,8 @@ export function HeroSection({ featuredProduct, loading }: HeroSectionProps) {
           <Link className="button" to="/products">
             Shop collection
           </Link>
-          <Link className="button secondary" to="/products?featured=true">
-            Explore new arrivals
+          <Link className="button secondary" to="/products">
+            Browse the collection
           </Link>
         </div>
         <p className="hero-trust">

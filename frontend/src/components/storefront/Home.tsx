@@ -58,9 +58,9 @@ export function Home() {
       <CategorySection categories={categories} loading={filterOptions.isLoading || products.isLoading} />
       <ProductSection
         eyebrow="Just in"
-        title="New arrivals"
+        title="Fresh picks"
         subtitle="Fresh styles added to the collection"
-        linkTo="/products?featured=true"
+        linkTo="/products"
         filters={{ featured: true }}
         limit={4}
       />

@@ -17,7 +17,6 @@ export function Footer({ settings }: FooterProps) {
           <div>
             <h4>Shop</h4>
             <Link to="/products">All products</Link>
-            <Link to="/products?featured=true">New arrivals</Link>
             <Link to="/#categories">Categories</Link>
           </div>
           <div>

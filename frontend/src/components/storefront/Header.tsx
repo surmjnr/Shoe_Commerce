@@ -7,7 +7,6 @@ import { useCartStore } from '@/stores/cart';
 const customerNavItems = [
   { to: '/', label: 'Home', end: true },
   { to: '/products', label: 'Shop', end: false },
-  { to: '/products?featured=true', label: 'New arrivals', end: false },
   { to: '/track', label: 'Track order', end: false },
 ];
 
