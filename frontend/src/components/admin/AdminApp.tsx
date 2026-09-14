@@ -136,11 +136,15 @@ export default function AdminApp() {
   const [authenticated, setAuthenticated] = useState(Boolean(localStorage.getItem('admin_access_token')));
   const [tab, setTab] = useState<'overview' | 'products' | 'orders' | 'settings' | 'configuration'>('overview');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  useEffect(() => {
+    document.body.style.overflow = mobileNavOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileNavOpen]);
   if (!authenticated) return <Login />;
   const currentPage = sellerNavigation.find(([value]) => value === tab)?.[1] || 'Overview';
   const signOut = () => { logoutAdmin(); setAuthenticated(false); };
   return <div className="admin-shell"><aside className={`admin-sidebar ${mobileNavOpen ? 'open' : ''}`}>
-    <div className="admin-brand"><span className="eyebrow">Sole / House</span><strong>Seller workspace</strong></div>
+    <div className="admin-sidebar-top"><div className="admin-brand"><span className="eyebrow">Sole / House</span><strong>Seller workspace</strong></div><button type="button" className="admin-drawer-close" aria-label="Close seller navigation" onClick={() => setMobileNavOpen(false)}>×</button></div>
     <nav className="admin-nav" aria-label="Seller navigation">{sellerNavigation.map(([value, text]) => <button className={tab === value ? 'active' : ''} key={value} onClick={() => { setTab(value); setMobileNavOpen(false); }}>{text}</button>)}</nav>
     <a className="admin-storefront-link" href="/" target="_blank" rel="noreferrer">View storefront ↗</a>
     <button className="admin-signout" onClick={signOut}>Sign out</button>

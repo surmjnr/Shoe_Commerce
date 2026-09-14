@@ -93,6 +93,16 @@ npm run lint
 
 `VITE_API_BASE_URL` defaults to `http://localhost:8000/api/v1` and can be overridden in `.env`.
 
+To view the Docker application from another device on the same network, replace `localhost` in `.env` with this computer's LAN IPv4 address. Add that address to `DJANGO_ALLOWED_HOSTS`, set `CORS_ALLOWED_ORIGINS` to the frontend URL, then restart Docker Compose. For example:
+
+```env
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend,192.168.1.25
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://192.168.1.25:5173
+VITE_API_BASE_URL=http://192.168.1.25:8000/api/v1
+```
+
+Open `http://192.168.1.25:5173` on the other device, replacing the example address with the host computer's LAN address. Windows Firewall must allow inbound TCP traffic on ports `5173` and `8000`.
+
 ## Main API routes
 
 Public routes include:
