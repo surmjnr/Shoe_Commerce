@@ -1,5 +1,5 @@
-import { FormEvent, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { getStoreSettings } from '@/services/storeApi';
 import { useCartStore } from '@/stores/cart';
@@ -16,7 +16,30 @@ export function Header() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const close = () => setOpen(false);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+    };
+
+    document.body.style.overflowY = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+    closeButtonRef.current?.focus();
+
+    return () => {
+      document.body.style.overflowY = '';
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open]);
 
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
@@ -31,7 +54,7 @@ export function Header() {
         <button
           type="button"
           className="icon-button mobile-menu"
-          aria-label="Open menu"
+          aria-label={open ? 'Close menu' : 'Open menu'}
           aria-controls="main-navigation"
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
@@ -50,7 +73,7 @@ export function Header() {
         </Link>
 
         <nav id="main-navigation" className={`nav${open ? ' nav-open' : ''}`} aria-label="Main navigation">
-          <button type="button" className="icon-button menu-close" aria-label="Close menu" onClick={close}>
+          <button ref={closeButtonRef} type="button" className="icon-button menu-close" aria-label="Close menu" onClick={close}>
             ×
           </button>
           {customerNavItems.map(({ to, label, end }) => (
